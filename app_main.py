@@ -295,10 +295,21 @@ if uploaded_file:
                 k3.metric("Endline", f"{avg_el:.1f}%", delta=f"{avg_el - avg_bl:.1f}%")
                 k4.metric("Growth", f"{f_merged['Growth'].mean():.1f}%")
                 st.markdown(
-                    f"""<div class="summary-box"><b>📊 Insight:</b> {imp_count} students ({imp_count / len(f_merged) * 100:.1f}%) showed improvement.</div>""",
+                    f"""
+                    <div class="summary-box">
+                        <b>📊 Detailed Insights & Metric Explanations:</b><br><br>
+                        <ul>
+                            <li><b>Students:</b> The total number of students ({len(f_merged)}) who participated in both the Baseline and Endline assessments based on your current filters.</li>
+                            <li><b>Baseline:</b> The average score ({avg_bl:.1f}%) achieved by these students at the beginning of the program.</li>
+                            <li><b>Endline:</b> The average score ({avg_el:.1f}%) achieved at the end of the program. The delta shows the overall shift.</li>
+                            <li><b>Growth:</b> The average individual student improvement ({f_merged['Growth'].mean():.1f}%).</li>
+                        </ul>
+                        <b>Key Takeaway:</b> Out of {len(f_merged)} students, <b>{imp_count} students ({imp_count / len(f_merged) * 100:.1f}%)</b> showed positive improvement in their scores from Baseline to Endline.
+                    </div>
+                    """,
                     unsafe_allow_html=True)
 
-            # Tab 2: Centre Performance (UPDATED BUBBLE SIZE)
+            # Tab 2
             with tabs[1]:
                 st.markdown("### Centre Performance")
                 # Aggregation to calculate Student Count
@@ -321,6 +332,31 @@ if uploaded_file:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
+                st.markdown(
+                    """
+                    <div class="summary-box" style="margin-bottom: 10px;">
+                        <b>📖 How to Read This Graph:</b><br>
+                        <ul>
+                            <li><b>X-Axis (Proficiency):</b> Shows the average Endline score. Centres further to the right have higher final scores.</li>
+                            <li><b>Y-Axis (Growth):</b> Shows the average improvement from Baseline. Centres higher up showed greater improvement.</li>
+                            <li><b>Bubble Size:</b> Represents the number of students at the centre. Larger bubbles mean more students took the assessment.</li>
+                            <li><b>Color:</b> Darker colors (more teal) indicate higher overall growth.</li>
+                            <li><b>Ideal Position:</b> Top-Right corner (Centres that achieved high final scores AND high improvement).</li>
+                        </ul>
+                    </div>
+
+                    <div class="summary-box">
+                        <b>🔑 Key Metrics Explained:</b><br>
+                        <ul>
+                            <li><b>Percentage_EL:</b> The average percentage scored by all students in the Endline assessment for a specific centre.</li>
+                            <li><b>Growth:</b> The average difference between Endline and Baseline scores for students in that centre.</li>
+                            <li><b>Student Count:</b> The total number of students who completed both the Baseline and Endline assessments at that centre.</li>
+                        </ul>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
             # Tab 3
             with tabs[2]:
                 st.markdown("### Student List")
@@ -332,12 +368,19 @@ if uploaded_file:
             # Tab 4
             with tabs[3]:
                 st.markdown("### Question Difficulty Heatmap")
+
+                # Dropdown menu to select assessment type
+                assessment_choice = st.selectbox("Select Assessment to View:", ["Baseline", "Endline"], index=1)
+
+                # Select the correct dataframe based on user choice
+                target_df = f_bl if assessment_choice == "Baseline" else f_el
+
                 q_data = []
-                for g in f_el['Grade'].unique():
-                    g_df = f_el[f_el['Grade'] == g]
+                for g in target_df['Grade'].unique():
+                    g_df = target_df[target_df['Grade'] == g]
                     g_str = str(g).replace('G', '').strip()
                     k_sub = answer_key[answer_key['Grade'].astype(str).str.contains(g_str, na=False)]
-                    k_sub = k_sub[k_sub['Assessment'] == 'Endline']
+                    k_sub = k_sub[k_sub['Assessment'] == assessment_choice]
 
                     for q in range(1, 11):
                         q_k = k_sub[k_sub['Question #'] == q]
@@ -351,10 +394,13 @@ if uploaded_file:
 
                 if q_data:
                     fig_hm = px.density_heatmap(pd.DataFrame(q_data), x='Question', y='Grade', z='Accuracy',
-                                                range_color=[0, 100], color_continuous_scale='RdYlGn', text_auto='.0f')
+                                                range_color=[0, 100], color_continuous_scale='RdYlGn', text_auto='.0f',
+                                                title=f"{assessment_choice} Question Accuracy Heatmap")
                     st.plotly_chart(fig_hm, use_container_width=True)
+                else:
+                    st.info(f"No data available for {assessment_choice} questions.")
 
-            # Tab 5
+            # Tab 5 (UPDATED WITH MISCONCEPTIONS DROPDOWN)
             with tabs[4]:
                 st.markdown(f"### 🧠 Skill Analysis ({selected_subject})")
 
@@ -389,12 +435,17 @@ if uploaded_file:
                         st.plotly_chart(fig_s, use_container_width=True)
 
                     with c2:
-                        st.write("#### ⚠️ Common Misconceptions in Endline")
-                        errs = compute_errors(f_el, answer_key, 'Endline')
+                        misconception_choice = st.selectbox("Select Assessment for Misconceptions:",
+                                                            ["Baseline", "Endline"], index=1)
+                        st.write(f"#### ⚠️ Common Misconceptions in {misconception_choice}")
+
+                        target_err_df = f_bl if misconception_choice == "Baseline" else f_el
+                        errs = compute_errors(target_err_df, answer_key, misconception_choice)
+
                         if not errs.empty:
                             st.dataframe(errs[['Skill', 'Common Error', 'Count']], hide_index=True)
                         else:
-                            st.info("No significant common errors detected.")
+                            st.info(f"No significant common errors detected in {misconception_choice}.")
                 else:
                     st.warning("Not enough data to calculate skill metrics.")
     else:
