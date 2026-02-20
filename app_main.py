@@ -389,7 +389,7 @@ if uploaded_file:
                         st.plotly_chart(fig_s, use_container_width=True)
 
                     with c2:
-                        st.write("#### ⚠️ Common Misconceptions")
+                        st.write("#### ⚠️ Common Misconceptions in Endline")
                         errs = compute_errors(f_el, answer_key, 'Endline')
                         if not errs.empty:
                             st.dataframe(errs[['Skill', 'Common Error', 'Count']], hide_index=True)
