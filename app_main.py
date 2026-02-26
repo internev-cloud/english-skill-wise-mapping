@@ -242,7 +242,7 @@ def compute_errors(df, key_df, assessment_type):
                     if not wrong_texts.empty:
                         top_error = wrong_texts.mode()[0]
                         freq = wrong_texts.value_counts().iloc[0]
-                        errors.append({'Skill': skill, 'Common Error': top_error, 'Count': freq})
+                        errors.append({'Question': q_col, 'Skill': skill, 'Common Error': top_error, 'Count': freq})
     return pd.DataFrame(errors)
 
 
@@ -400,7 +400,7 @@ if uploaded_file:
                 else:
                     st.info(f"No data available for {assessment_choice} questions.")
 
-            # Tab 5 (UPDATED WITH MISCONCEPTIONS DROPDOWN)
+            # Tab 5 (UPDATED WITH GRADE FILTER FOR MISCONCEPTIONS)
             with tabs[4]:
                 st.markdown(f"### 🧠 Skill Analysis ({selected_subject})")
 
@@ -437,15 +437,26 @@ if uploaded_file:
                     with c2:
                         misconception_choice = st.selectbox("Select Assessment for Misconceptions:",
                                                             ["Baseline", "Endline"], index=1)
-                        st.write(f"#### ⚠️ Common Misconceptions in {misconception_choice}")
-
                         target_err_df = f_bl if misconception_choice == "Baseline" else f_el
-                        errs = compute_errors(target_err_df, answer_key, misconception_choice)
 
-                        if not errs.empty:
-                            st.dataframe(errs[['Skill', 'Common Error', 'Count']], hide_index=True)
+                        available_grades_misc = sorted(target_err_df['Grade'].unique())
+
+                        if available_grades_misc:
+                            selected_misc_grade = st.selectbox("Select Grade for Misconceptions:",
+                                                               available_grades_misc)
+                            st.write(
+                                f"#### ⚠️ Common Misconceptions in {misconception_choice} (Grade {selected_misc_grade})")
+
+                            grade_filtered_err_df = target_err_df[target_err_df['Grade'] == selected_misc_grade]
+                            errs = compute_errors(grade_filtered_err_df, answer_key, misconception_choice)
+
+                            if not errs.empty:
+                                st.dataframe(errs[['Question', 'Skill', 'Common Error', 'Count']], hide_index=True)
+                            else:
+                                st.info(
+                                    f"No significant common errors detected in {misconception_choice} for Grade {selected_misc_grade}.")
                         else:
-                            st.info(f"No significant common errors detected in {misconception_choice}.")
+                            st.info("No data available to display misconceptions.")
                 else:
                     st.warning("Not enough data to calculate skill metrics.")
     else:
