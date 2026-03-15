@@ -414,6 +414,8 @@ if uploaded_file:
 
                 if not s_bl.empty and not s_el.empty:
                     comp = pd.merge(s_bl, s_el, on='Skill', suffixes=('_BL', '_EL'))
+                    # Calculate Growth metric
+                    comp['Growth'] = comp['Accuracy_EL'] - comp['Accuracy_BL']
                     comp = comp.sort_values('Accuracy_EL')
 
                     c1, c2 = st.columns([1.5, 1])
@@ -433,6 +435,28 @@ if uploaded_file:
                             legend=dict(orientation="h", y=1.1, x=0.5, xanchor='center')
                         )
                         st.plotly_chart(fig_s, use_container_width=True)
+
+                        # --- NEW SKILL ANALYSIS SUMMARY ---
+                        if not comp.empty:
+                            st.markdown("#### 📊 Skill Performance Breakdown")
+                            
+                            top_growth = comp.loc[comp['Growth'].idxmax()]
+                            top_endline = comp.loc[comp['Accuracy_EL'].idxmax()]
+                            needs_work = comp.loc[comp['Accuracy_EL'].idxmin()]
+                            
+                            st.markdown(f"""
+                            <div class="summary-box" style="margin-top: 10px; margin-bottom: 20px;">
+                                <ul>
+                                    <li><b>Most Improved Skill:</b> {top_growth['Skill']} (+{top_growth['Growth']:.1f}%)</li>
+                                    <li><b>Strongest Skill (Endline):</b> {top_endline['Skill']} ({top_endline['Accuracy_EL']:.1f}%)</li>
+                                    <li><b>Area for Improvement:</b> {needs_work['Skill']} (Lowest Endline at {needs_work['Accuracy_EL']:.1f}%)</li>
+                                </ul>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            display_comp = comp[['Skill', 'Accuracy_BL', 'Accuracy_EL', 'Growth']].copy()
+                            display_comp.columns = ['Skill', 'Baseline Accuracy (%)', 'Endline Accuracy (%)', 'Growth (%)']
+                            st.dataframe(display_comp.style.format(precision=1), use_container_width=True, hide_index=True)
 
                     with c2:
                         misconception_choice = st.selectbox("Select Assessment for Misconceptions:",
